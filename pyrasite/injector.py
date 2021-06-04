@@ -20,7 +20,7 @@ import subprocess
 import platform
 
 
-def inject_gdb(pid, filename, verbose=False, gdb_prefix=''):
+def inject(pid, filename, verbose=False, gdb_prefix=''):
     """Executes a file in a running Python process."""
     filename = os.path.abspath(filename)
     gdb_cmds = [
@@ -80,27 +80,23 @@ def inject_lldb(pid, filename, verbose=False, gdb_prefix=''):
     return p.returncode
 
 
-def inject(pid, filename, verbose=False, gdb_prefix=''):
-    """Executes a file in a running Python process."""
-    ret = inject_gdb(pid, filename, verbose, gdb_prefix)
-    if ret == 127:
-        ret = inject_lldb(pid, filename, verbose, gdb_prefix)
-    return ret
-
-
-if platform.system() == 'Windows':
-    def inject_win(pid, filename, verbose=False, gdb_prefix=''):
-        if gdb_prefix == '':
-            gdb_prefix = os.path.join(os.path.dirname(__file__), 'win') + os.sep
-        filename = os.path.abspath(filename)
-        code = 'import sys; sys.path.insert(0, \\"%s\\"); sys.path.insert(0, \\"%s\\"); exec(open(\\"%s\\").read())' % (os.path.dirname(filename).replace('\\', '/'), os.path.abspath(os.path.join(os.path.dirname(__file__), '..')).replace('\\', '/'), filename.replace('\\', '/'))
-        p = subprocess.Popen('%sinject_python_32.exe %d \"%s\"' % (gdb_prefix, pid, code), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+def inject_win(pid, filename, verbose=False, gdb_prefix=''):
+    if gdb_prefix == '':
+        gdb_prefix = os.path.join(os.path.dirname(__file__), 'win') + os.sep
+    filename = os.path.abspath(filename)
+    code = 'import sys; sys.path.insert(0, \\"%s\\"); sys.path.insert(0, \\"%s\\"); exec(open(\\"%s\\").read())' % (os.path.dirname(filename).replace('\\', '/'), os.path.abspath(os.path.join(os.path.dirname(__file__), '..')).replace('\\', '/'), filename.replace('\\', '/'))
+    p = subprocess.Popen('%sinject_python_32.exe %d \"%s\"' % (gdb_prefix, pid, code), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    out, err = p.communicate()
+    if p.wait() == 25:
+        p = subprocess.Popen('%sinject_python_64.exe %d \"%s\"' % (gdb_prefix, pid, code), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         out, err = p.communicate()
-        if p.wait() == 25:
-            p = subprocess.Popen('%sinject_python_64.exe %d \"%s\"' % (gdb_prefix, pid, code), shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-            out, err = p.communicate()
-        if verbose:
-            print(out)
-            print(err)
+    if verbose:
+        print(out)
+        print(err)
 
+
+_platform = platform.system()
+if _platform == 'Darwin':
+    inject = inject_lldb
+elif _platform == 'Windows':
     inject = inject_win
