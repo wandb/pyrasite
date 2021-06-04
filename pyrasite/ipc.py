@@ -84,7 +84,8 @@ class PyrasiteIPC(object):
     @property
     def title(self):
         if not getattr(self, '_title', None):
-            if platform.system() == 'Windows':
+            _platform = platform.system()
+            if _platform == 'Windows':
                 p = subprocess.Popen('tasklist /v /fi "pid eq %d" /nh /fo csv' % self.pid,
                                     stdout=subprocess.PIPE, shell=True)
                 tmp = p.communicate()[0].decode('utf-8').strip().split(',')
@@ -92,6 +93,10 @@ class PyrasiteIPC(object):
                     self._title = tmp[0][1:-1]
                 else:
                     self._title = tmp[-1][1:-1]
+            elif _platform == 'Darwin':
+                p = subprocess.Popen('ps -o command= -p %d' % self.pid,
+                                    stdout=subprocess.PIPE, shell=True)
+                self._title = p.communicate()[0].decode('utf-8')
             else:
                 p = subprocess.Popen('ps --no-heading -o cmd= -p %d' % self.pid,
                                     stdout=subprocess.PIPE, shell=True)
